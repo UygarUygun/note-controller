@@ -13,6 +13,15 @@ p = pyaudio.PyAudio()
 # Open the stream
 stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
 
+
+# Get default input device info
+default_device_info = p.get_default_input_device_info()
+default_device_name = default_device_info['index']
+
+# Display default input device name
+print(f"Default input device: {default_device_name}")
+
+
 while True:
     # Read audio data from stream
     data = stream.read(CHUNK)

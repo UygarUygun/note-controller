@@ -19,5 +19,13 @@ for i in range(num_devices):
         print(f"  Device {i}: {device_name}")
         print(f"    Input channels: {device_input_channels}")
 
+
+# Get default input device info
+default_device_info = p.get_default_input_device_info()
+default_device_name = default_device_info['index']
+
+# Display default input device name
+print(f"Default input device: {default_device_name}")
+
 # Terminate PyAudio
 p.terminate()
