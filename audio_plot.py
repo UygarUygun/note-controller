@@ -1,92 +1,78 @@
 import pyaudio
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 
-# Initialize PyAudio
+# initialize PyAudio
 p = pyaudio.PyAudio()
 
-# Set the plot parameters
-plt.ion()
-fig, ax = plt.subplots()
-x = np.arange(0, 2 * 1024, 2)
-line, = ax.plot(x, np.random.rand(1024), '-', lw=2)
-
-# Ask the user to select an input device
-print("Available input devices:")
-for i in range(p.get_device_count()):
-    dev = p.get_device_info_by_index(i)
-    if dev['maxInputChannels'] > 0:
-        print(str(i) + ': ' + dev['name'])
-device_index = int(input("Enter the index of the input device you want to use: "))
-
-# Set the audio stream parameters
-CHUNK = 1024
-FORMAT = pyaudio.paFloat32
-CHANNELS = 1
-RATE = int(p.get_device_info_by_index(device_index)['defaultSampleRate'])
-
-# Open the audio stream
-stream = p.open(format=FORMAT,
-                channels=CHANNELS,
-                rate=RATE,
+# open stream using default input device
+stream = p.open(format=pyaudio.paFloat32,
+                channels=1,
+                rate=44100,
                 input=True,
-                frames_per_buffer=CHUNK,
-                input_device_index=device_index)
+                frames_per_buffer=1024,
+                input_device_index=3)
 
-# Initialize variables for pitch detection and plotting
-pitch_values = []
-frequencies = []
-prev_frequency = 0
+# create a new plot to show the pitch and signal over time
+fig, (ax_pitch, ax_signal) = plt.subplots(2, figsize=(8, 6))
+x = np.arange(0, 2 * 1024, 2)
+line_pitch, = ax_pitch.plot([], [], lw=2)
+line_signal, = ax_signal.plot([], [], lw=2)
+ax_pitch.set_ylim(0, 1500)
+ax_pitch.set_xlim(0, 1024)
+ax_pitch.set_title('Pitch over time')
+ax_pitch.set_xlabel('Time')
+ax_pitch.set_ylabel('Pitch (Hz)')
+ax_signal.set_ylim(-1, 1)
+ax_signal.set_xlim(0, 2 * 1024)
+ax_signal.set_title('Signal over time')
+ax_signal.set_xlabel('Time')
+ax_signal.set_ylabel('Amplitude')
 
-# Start the audio stream and the plot
-stream.start_stream()
-while stream.is_active():
-    # Read audio data from the stream
-    data = stream.read(CHUNK, exception_on_overflow=False)
+fundamental_freq = 0.0
 
-    # Convert the audio data to a numpy array
-    audio_array = np.frombuffer(data, dtype=np.float32)
+# callback function to read audio data and update plot
+def update_plot(frame):
+    global fundamental_freq
 
-    # Compute the power spectrum of the audio data
-    power_spectrum = np.abs(np.fft.rfft(audio_array)) ** 2
+    # read audio data
+    data = stream.read(1024, exception_on_overflow=False)
+    # convert data to numpy array
+    data = np.frombuffer(data, dtype=np.float32)
 
-    # Find the index of the frequency with the maximum power
-    max_index = np.argmax(power_spectrum)
-
-    # Convert the index to a frequency
-    frequency = max_index * RATE / CHUNK
-
-    # If the frequency is too low or too high, discard it and use the previous frequency instead
-    if frequency < 100 or frequency > 1000:
-        frequency = prev_frequency
+    # calculate pitch
+    autocorr = np.correlate(data, data, mode='full')
+    autocorr = autocorr[len(autocorr)//2:]
+    # find the first peak in the autocorrelation
+    start = 0
+    while autocorr[start] > autocorr[start + 1]:
+        start += 1
+    peak = start
+    while peak < len(autocorr) and autocorr[peak] > autocorr[peak - 1]:
+        peak += 1
+    if peak == len(autocorr):
+        peak = 0
+    fundamental_period = peak + start
+    fundamental_freq = 44100.0 / fundamental_period
+    # handle case where fundamental_freq is zero or negative
+    if fundamental_freq <= 0:
+        note_index = 0
     else:
-        prev_frequency = frequency
+        note_index = int(round(12 * math.log2(fundamental_freq / 440.0))) % 12
 
-    # Compute the pitch of the frequency in Hz
-    pitch_hz = 69 + 12 * np.log2(frequency / 440)
-
-    # Compute the pitch in musical notation (e.g. A4)
-    note_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-    note_number = int(round(pitch_hz))
-    octave = note_number // 12 - 1
-    note_name = note_names[note_number % 12]
-    note = note_name + str(octave)
-
-    # Add the pitch to the list of pitch values
-    pitch_values.append(pitch_hz)
-    frequencies.append(frequency)
-
-    # Plot the pitch values in real time
-    line.set_ydata(pitch_values[-1024:])
-    ax.relim()
-    ax.autoscale_view()
+    # update plot
+    line_pitch.set_data(x[:len(data)//2], autocorr[:len(data)//2])
+    line_signal.set_data(x, data)
+    ax_pitch.set_title(f'Pitch over time: {note_names[note_index]} ({fundamental_freq:.2f} Hz)')
     fig.canvas.draw()
     fig.canvas.flush_events()
 
-    # Play back the audio input
-    stream.write(data)
+    return (line_pitch,)
 
-# Stop the audio stream and terminate PyAudio
-stream.stop_stream()
-stream.close()
-p.terminate()
+note_names = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
+
+# start animation
+while True:
+    ani = update_plot(None)
+    plt.pause(0.001)
