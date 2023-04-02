@@ -33,13 +33,16 @@ def detect_pitch_auto_corr(signal):
     """
     # Calculate the Auto-correlation of the signal
     auto_corr = np.correlate(signal, signal, mode='full')
+    print(signal)
     auto_corr = auto_corr[len(auto_corr)//2:]
+    print(auto_corr)
 
     # Find the index of the maximum Auto-correlation value
     max_idx = np.argmax(auto_corr)
 
     # Calculate the fundamental frequency (pitch) in Hz
     fundamental_freq = sampling_rate / max_idx
+    
 
     # Calculate the note name from the fundamental frequency
     notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
