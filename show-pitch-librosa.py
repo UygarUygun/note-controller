@@ -1,47 +1,34 @@
 import librosa
-import librosa.display
 import numpy as np
 import pyaudio
-import matplotlib as plt
 
-# Set the frame size and sampling rate for the audio input
-frame_size = 2048
-sample_rate = 44100
-
-# Set the pitch detection parameters
-fmin = librosa.note_to_hz('C2')  # Minimum frequency to detect
-fmax = librosa.note_to_hz('C7')  # Maximum frequency to detect
+# Define the frame size and sampling rate for the audio input
+frame_size = 1024
+sample_rate = 22050
 
 # Initialize the PyAudio object
 p = pyaudio.PyAudio()
 
 # Open the audio input stream
-stream = p.open(format=pyaudio.paFloat32, channels=1, rate=sample_rate, input=True, frames_per_buffer=frame_size)
-
-# Initialize the pitch detector
-pitch = librosa.yin(frame_size, fmin=fmin, fmax=fmax)
-
-# Create a figure for plotting the pitch
-fig, ax = plt.subplots()
+stream = p.open(format=pyaudio.paFloat32, channels=1, rate=sample_rate, input=True, frames_per_buffer=frame_size, input_device_index=3)
 
 # Continuously read audio data from the stream and detect the pitch in real-time
 while True:
     # Read a frame of audio data from the stream
     data = stream.read(frame_size, exception_on_overflow=False)
-    
+
     # Convert the audio data to a numpy array
     y = np.frombuffer(data, dtype=np.float32)
-    
-    # Detect the pitch of the audio frame
-    pitch_hz = pitch(y)
-    
+
+    # Compute the pitch using the YIN algorithm
+    pitch, mag = librosa.piptrack(y=y, sr=sample_rate, fmin=80, fmax=500)
+    pitch = pitch[:, -1]  # Take the last frame
+
+    # Get the index of the maximum value in the pitch vector
+    max_idx = np.argmax(pitch)
+
+    # Get the frequency in Hz of the maximum pitch value
+    freq_hz = librosa.midi_to_hz(pitch[max_idx])/100
+
     # Print the detected pitch in Hz
-    print(f"Detected pitch: {pitch_hz:.2f} Hz")
-    
-    # Clear the plot and plot the current pitch
-    ax.clear()
-    librosa.display.pitch(pitch_hz, ax=ax, y_axis='hz', fmin=fmin, fmax=fmax)
-    
-    # Show the plot
-    plt.show(block=False)
-    plt.pause(0.001)
+    print(f"Detected pitch: {freq_hz:.2f} kHz")
