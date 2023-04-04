@@ -2,6 +2,18 @@ import librosa
 import numpy as np
 import pyaudio
 import statistics as st
+import math, struct, audioop
+
+# an rms function to determine the input audio volume
+def rms( data ):
+    count = len(data)/2
+    format = "%dh"%(count)
+    shorts = struct.unpack( format, data )
+    sum_squares = 0.0
+    for sample in shorts:
+        n = sample * (1.0/32768)
+        sum_squares += n*n
+    return math.sqrt( sum_squares / count )
 
 # Define the frame size and sampling rate for the audio input
 frame_size = 2048 * 4
@@ -28,7 +40,9 @@ while True:
     
     # Get the index of the maximum value in the pitch vector
     max_idx = np.argmax(pitch)
-    
+    vol = rms(data)
+    #vol = audioop.rms(data, 2)
+    decibel = 20 * math.log10(vol)
     median = np.median(pitch)
     #mode = st.mode(pitch)
     
@@ -43,4 +57,6 @@ while True:
     note_name = librosa.hz_to_note(median)
     
     # Print the detected note name and frequency
-    print(f"Detected note: {note_name}, frequency: {freq_hz:.2f} Hz")
+    print(f"Detected note: {note_name}, frequency: {freq_hz:.2f} Hz, Volume: {vol}")
+
+
