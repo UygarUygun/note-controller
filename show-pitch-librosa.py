@@ -2,9 +2,41 @@ import librosa
 import numpy as np
 import pyaudio
 import statistics as st
-import math, struct, audioop
+import math, struct
+import keyboard as ky
 
-# an rms function to determine the input audio volume
+# A volume treshold for notes to be registered as keystrokes
+# On my system the input background noise is around 0.37 and this causes
+# faulty detection of notes while no notes are being played
+# A treshold is neccessary to overcome this problem
+volTreshold = 0.50
+
+# This value direclty effects the frame size
+# Lower values grant lower latency but may cause faulty detection
+# This also directly effects how many key strokes are registered for valid notes
+# ^^^^^^ this part is subject to change
+frameSizeMultiplier = 3 
+
+# All notes from a to g#, this is for readers reference and not used in the program
+notes = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
+
+# A minor pentatonic scale notes
+scaleNotes = ['A2', 'C3', 'D3', 'E3', 'G3', 'A3', 'C4', 'D4', 'E4', 'G4', 'A4', 'C5']
+prevNote = ""
+
+# Only 5 keys are mapped to the firs 5 notes of A minor pentatonic scale
+noteDict = {
+    scaleNotes[0]: "w",
+    scaleNotes[1]: "s",
+    scaleNotes[2]: "a",
+    scaleNotes[3]: "d",
+    scaleNotes[4]: "space",
+}
+
+def noteToKey(note):
+        return str(noteDict[note])
+
+# An rms function to determine the input audio volume
 def rms( data ):
     count = len(data)/2
     format = "%dh"%(count)
@@ -15,8 +47,9 @@ def rms( data ):
         sum_squares += n*n
     return math.sqrt( sum_squares / count )
 
+
 # Define the frame size and sampling rate for the audio input
-frame_size = 2048 * 4
+frame_size = 2048 * frameSizeMultiplier
 sample_rate = 48000
 
 # Initialize the PyAudio object
@@ -24,6 +57,7 @@ p = pyaudio.PyAudio()
 
 # Open the audio input stream
 stream = p.open(format=pyaudio.paFloat32, channels=1, rate=sample_rate, input=True, frames_per_buffer=frame_size, input_device_index=3)
+
 
 # Continuously read audio data from the stream and detect the pitch in real-time
 while True:
@@ -36,17 +70,19 @@ while True:
     # Compute the pitch using the YIN algorithm
     pitch = librosa.yin(y=y, sr=sample_rate, fmin=20, fmax=2000, frame_length=frame_size, hop_length=frame_size // 4)
     
-    print(pitch)
-    
     # Get the index of the maximum value in the pitch vector
-    max_idx = np.argmax(pitch)
-    vol = rms(data)
-    #vol = audioop.rms(data, 2)
-    decibel = 20 * math.log10(vol)
-    median = np.median(pitch)
-    #mode = st.mode(pitch)
+    #max_idx = np.argmax(pitch)
     
-    #print(max_idx)
+    # volume is calculated for the frame
+    vol = rms(data)
+    #decibel = 20 * math.log10(vol)
+    
+    # median of notes in the frame (depends on the frame size)
+    # taking the mean would not work because plucking the strings
+    # always produce a very short out of pitch noise
+    # we want the pitch of the sustained note
+    median = np.median(pitch)
+    
     
     # Get the frequency in Hz of the maximum pitch value
     #freq_hz = librosa.note_to_hz(librosa.hz_to_note(librosa.midi_to_hz(max_idx)))
@@ -57,6 +93,17 @@ while True:
     note_name = librosa.hz_to_note(median)
     
     # Print the detected note name and frequency
-    print(f"Detected note: {note_name}, frequency: {freq_hz:.2f} Hz, Volume: {vol}")
+    #print(f"Detected note: {note_name}, frequency: {freq_hz:.2f} Hz, Volume: {vol}")
+    
+    # print the note name and volume
+    # register the related keystroke if the note is mapped and over the treshold
+    if(note_name in noteDict and vol > volTreshold):
+        print(noteToKey(note_name) + ' Volume: ' + str(vol))
+        ky.send(noteToKey(note_name))
+        prevNote = note_name
+    #print(data)
+    
+    
+    
 
 
