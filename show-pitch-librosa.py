@@ -2,7 +2,7 @@ import librosa
 import numpy as np
 import pyaudio
 import statistics as st
-import math, struct
+import math, struct, mouse
 import keyboard as ky
 
 # A volume treshold for notes to be registered as keystrokes
@@ -10,6 +10,12 @@ import keyboard as ky
 # faulty detection of notes while no notes are being played
 # A treshold is neccessary to overcome this problem
 volTreshold = 0.50
+
+# the value of mouse position change for every note detected
+mouseMovementValue = 50
+
+# the amount of time between each mouse pos update
+mouseDurationValue = 0.05
 
 # This value direclty effects the frame size
 # Lower values grant lower latency but may cause faulty detection
@@ -22,19 +28,51 @@ notes = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
 
 # A minor pentatonic scale notes
 scaleNotes = ['A2', 'C3', 'D3', 'E3', 'G3', 'A3', 'C4', 'D4', 'E4', 'G4', 'A4', 'C5']
+keyControlNotes = scaleNotes[:6]
+mouseXControlNotes = scaleNotes[6:8]
+mouseYControlNotes = scaleNotes[8:10]
+mouseClickControlNotes = scaleNotes[10:12]
 prevNote = ""
 
+# The flag indicates whether the shift key is being held or not
+shiftHoldFlag = False
+
 # Only 5 keys are mapped to the firs 5 notes of A minor pentatonic scale
-noteDict = {
-    scaleNotes[0]: "w",
-    scaleNotes[1]: "s",
-    scaleNotes[2]: "a",
-    scaleNotes[3]: "d",
-    scaleNotes[4]: "space",
+noteKeyDict = {
+    keyControlNotes[0]: "w",
+    keyControlNotes[1]: "s",
+    keyControlNotes[2]: "a",
+    keyControlNotes[3]: "d",
+    keyControlNotes[4]: "space",
+    keyControlNotes[5]: "shift"
+}
+
+noteMouse_X_PosDict = {
+    mouseXControlNotes[0]: -mouseMovementValue,
+    mouseXControlNotes[1]: mouseMovementValue,
+}
+
+noteMouse_Y_PosDict = {
+    mouseYControlNotes[0]: mouseMovementValue,
+    mouseYControlNotes[1]: -mouseMovementValue    
+}
+
+noteMouseClickDict = {
+    mouseClickControlNotes[0]: 'left',
+    mouseClickControlNotes[1]: 'right'
 }
 
 def noteToKey(note):
-        return str(noteDict[note])
+    global shiftHoldFlag
+    keystroke = str(noteKeyDict[note])
+    if (keystroke != 'shift'):
+        ky.send(str(noteKeyDict[note]))
+    else:
+        ky.send(str(noteKeyDict[note]), do_press=shiftHoldFlag, do_release=not(shiftHoldFlag))
+        shiftHoldFlag = not(shiftHoldFlag)
+    
+def noteToMouse(note):
+    return (noteMouse_X_PosDict[note])
 
 # An rms function to determine the input audio volume
 def rms( data ):
@@ -97,10 +135,26 @@ while True:
     
     # print the note name and volume
     # register the related keystroke if the note is mapped and over the treshold
-    if(note_name in noteDict and vol > volTreshold):
-        print(noteToKey(note_name) + ' Volume: ' + str(vol))
-        ky.send(noteToKey(note_name))
+    if(note_name in noteKeyDict and vol > volTreshold):
+        print(noteKeyDict[note_name] + ' Volume: ' + str(vol))
+        noteToKey(note_name)
         prevNote = note_name
+ 
+    
+    if (note_name in noteMouse_X_PosDict and vol > volTreshold - 0.1):        
+        print(str(noteMouse_X_PosDict[note_name]) + ' X, Volume: ' + str(vol))
+        mouse.move(noteMouse_X_PosDict[note_name], 0, absolute=False, duration=mouseDurationValue)    
+    
+    if (note_name in noteMouse_Y_PosDict and vol > volTreshold - 0.1):        
+        print(str(noteMouse_Y_PosDict[note_name]) + ' Y, Volume: ' + str(vol))
+        mouse.move(0, noteMouse_Y_PosDict[note_name], absolute=False, duration=mouseDurationValue)    
+    
+    if (note_name in noteMouseClickDict and vol > volTreshold - 0.1):        
+        print(str(noteMouseClickDict[note_name]) + ' Click, Volume: ' + str(vol))
+        mouse.click(noteMouseClickDict[note_name])    
+    
+    
+    
     #print(data)
     
     
