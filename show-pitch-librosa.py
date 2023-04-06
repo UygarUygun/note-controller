@@ -37,7 +37,7 @@ prevNote = ""
 # The flag indicates whether the shift key is being held or not
 shiftHoldFlag = False
 
-# Only 5 keys are mapped to the firs 5 notes of A minor pentatonic scale
+# Only 6 keys are mapped to the firs 5 notes of A minor pentatonic scale
 noteKeyDict = {
     keyControlNotes[0]: "w",
     keyControlNotes[1]: "s",
