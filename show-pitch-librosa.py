@@ -154,7 +154,7 @@ while True:
         mouse.click(noteMouseClickDict[note_name])    
     
     
-    
+    print(pitch)
     #print(data)
     
     
