@@ -2,6 +2,7 @@ import sys
 from PySide6.QtCore import Qt, QTimer, QRect, QPoint
 from PySide6.QtGui import QPalette, QColor
 from PySide6.QtWidgets import QApplication, QWidget, QLabel
+from guifunc_show_pitch_librosa import runRead
 
 class AlwaysOnTopWidget(QWidget):
     def __init__(self, text_func):
@@ -30,7 +31,7 @@ class AlwaysOnTopWidget(QWidget):
         # Connect the timer to the text update function
         self.timer = QTimer(self)
         self.timer.timeout.connect(lambda: self.update_text(text_func()))
-        self.timer.start(1000) # Update text every 1 second
+        self.timer.start(2) # Update text every 0.01 second
         
         # Set the widget size to be slightly smaller than the screen geometry
         screen_geometry = QApplication.primaryScreen().geometry()
@@ -72,7 +73,7 @@ if __name__ == '__main__':
         return rs
     
     # Create the widget with the text function
-    widget = AlwaysOnTopWidget(text_func)
+    widget = AlwaysOnTopWidget(runRead)
     
     # Show the widget
     widget.show()
