@@ -1,5 +1,5 @@
 import sys
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QRect, QPoint
 from PySide6.QtGui import QPalette, QColor
 from PySide6.QtWidgets import QApplication, QWidget, QLabel
 
@@ -7,8 +7,8 @@ class AlwaysOnTopWidget(QWidget):
     def __init__(self, text_func):
         super().__init__()
         
-        # Set the window flags to always stay on top
-        self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        # Set the window flags to always stay on top and remove the window frame
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
         
         # Set the background color to transparent
         self.setAttribute(Qt.WA_TranslucentBackground)
@@ -24,7 +24,7 @@ class AlwaysOnTopWidget(QWidget):
         
         # Set the palette to use a white text color
         palette = QPalette()
-        palette.setColor(QPalette.WindowText, Qt.white)
+        palette.setColor(QPalette.WindowText, Qt.magenta)
         self.label.setPalette(palette)
         
         # Connect the timer to the text update function
@@ -34,20 +34,33 @@ class AlwaysOnTopWidget(QWidget):
         
         # Set the widget size to be slightly smaller than the screen geometry
         screen_geometry = QApplication.primaryScreen().geometry()
-        self_width = int(screen_geometry.width() * 0.8)
-        self_height = int(screen_geometry.height() * 0.3)
-        self.setFixedSize(self_width, self_height)
+        #self_width = int(screen_geometry.width() * 0.4)
+        #self_height = int(screen_geometry.height() * 0.3)
+        self_width = int( screen_geometry.width() / self.label.width())
+        self_height = int(self.label.height() / self.label.height())
+        #self.setMinimumSize(self_width, self_height)
         
-        # Center the widget on the screen
-        x = (screen_geometry.width() - self.width()) // 2
-        y = (screen_geometry.height() - self.height()) // 2
-        self.move(x, y)
+        # Set the widget's position to the bottom-right corner of the screen
+        self.screen_rect = QApplication.primaryScreen().geometry()
+        self.move(self.screen_rect.bottomRight() - self.rect().bottomRight())
+        print(self.screen_rect.bottomRight())
+        print(self.rect().bottomRight())
+        #self.move(screen_rect.bottomRight())
+        
+        
+        # Remove the window title
+        self.setWindowTitle("")
     
     def update_text(self, text):
         self.label.setText(text)
         self.label.adjustSize()
-        self.label.resize(self.label.width() + 10, self.label.height() + 10)
-        self.resize(self.label.size() + self.frameSize())
+        #self.label.setMaximumSize(self.label.width() + 10, self.label.height() + 10)
+        self.resize(self.label.size())
+        self.update_position()
+        #print(self.height())
+    
+    def update_position(self):
+        self.move(self.screen_rect.bottomRight() - self.rect().bottomRight())
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -55,7 +68,8 @@ if __name__ == '__main__':
     # Define a function to generate the text
     def text_func():
         import datetime
-        return str(datetime.datetime.now())
+        rs = str(datetime.datetime.now().hour) + ':' + str(datetime.datetime.now().minute)
+        return rs
     
     # Create the widget with the text function
     widget = AlwaysOnTopWidget(text_func)
@@ -64,5 +78,3 @@ if __name__ == '__main__':
     widget.show()
     
     sys.exit(app.exec())
-    #
-    #
