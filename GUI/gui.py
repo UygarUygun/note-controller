@@ -1,12 +1,15 @@
 import sys
-from PySide6.QtCore import Qt, QTimer, QRect, QPoint
+from PySide6.QtCore import Qt, QTimer, QRect, QPoint, Slot, QThread
 from PySide6.QtGui import QPalette, QColor
 from PySide6.QtWidgets import QApplication, QWidget, QLabel
-from guifunc_show_pitch_librosa import runRead
+from guifunc_show_pitch_librosa import noteReadWorker
 
 class AlwaysOnTopWidget(QWidget):
-    def __init__(self, text_func):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        self.worker = noteReadWorker()
+        self.thr = QThread(self)
         
         # Set the window flags to always stay on top and remove the window frame
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
@@ -29,9 +32,20 @@ class AlwaysOnTopWidget(QWidget):
         self.label.setPalette(palette)
         
         # Connect the timer to the text update function
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(lambda: self.update_text(text_func()))
-        self.timer.start(2) # Update text every 0.01 second
+        #self.timer = QTimer(self)
+        #self.timer.timeout.connect(lambda: self.update_text(text_func()))
+        #self.timer.start(2) # Update text every 0.01 second
+        
+        self.worker.updateNote.connect(self.my_update_text)
+        self.worker.moveToThread(self.thr)
+        self.thr.started.connect(self.worker.run)
+        self.thr.finished.connect(self.worker.closeEvent)
+        
+        self.thr.start()
+        
+        print(str(self.thread()))
+        print(str(self.worker.thread()))
+        
         
         # Set the widget size to be slightly smaller than the screen geometry
         screen_geometry = QApplication.primaryScreen().geometry()
@@ -59,6 +73,15 @@ class AlwaysOnTopWidget(QWidget):
         self.resize(self.label.size())
         self.update_position()
         #print(self.height())
+        
+    @Slot()
+    def my_update_text(self, text):
+        self.label.setText(text)
+        self.label.adjustSize()
+        #self.label.setMaximumSize(self.label.width() + 10, self.label.height() + 10)
+        self.resize(self.label.size())
+        self.update_position()
+        #print(self.height())
     
     def update_position(self):
         self.move(self.screen_rect.bottomRight() - self.rect().bottomRight())
@@ -73,7 +96,8 @@ if __name__ == '__main__':
         return rs
     
     # Create the widget with the text function
-    widget = AlwaysOnTopWidget(runRead)
+    widget = AlwaysOnTopWidget()
+    app.aboutToQuit.connect(widget.worker.closeEvent)
     
     # Show the widget
     widget.show()
